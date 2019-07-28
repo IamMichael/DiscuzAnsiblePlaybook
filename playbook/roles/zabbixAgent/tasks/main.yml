@@ -1,0 +1,9 @@
+---
+
+- name: "Install Zabbix Agent"
+  include_tasks: install_zabbixAgent.yml
+
+
+#- name: "Register Zabbix Agent"
+#  include_tasks: register_zabbixAgent.yml
+

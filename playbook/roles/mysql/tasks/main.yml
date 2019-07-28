@@ -1,0 +1,141 @@
+---
+- name: "Create Mysql Folder"
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0750
+  with_items:
+    - /opt/mysqldata
+    - /opt/mysqlconfig
+    - "{{ install_tmp }}"
+
+  
+- name: "Copy Mysql Config File"
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: 999
+    group: 999 
+    mode: 0640
+  with_items:
+    - { src: 'mysqld.cnf', dest: '/opt/mysqlconfig/mysqld.cnf' }
+
+
+- name: "Copy Mysql Service File"
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: 0640
+  with_items:
+    - { src: 'mysqld.service', dest: '/etc/systemd/system' }
+
+
+- name: "Copy Mysql Docker Image"
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: 0640
+  with_items:
+    - { src: 'mysql_{{ mysql_ver }}.tar', dest: '{{ install_tmp }}' }
+    - { src: 'create.sql', dest: '{{ install_tmp }}' }
+
+
+- name: "Load Mysql Docker Image"
+  shell: "docker load -i {{ install_tmp }}/mysql_{{ mysql_ver }}.tar"
+
+
+- name: "Init Mysql Server"
+  shell: >
+    docker run -d \
+      --name mysql \
+      -p 3306:3306 \
+      -e UMASK=0600 \
+      -e UMASK_DIR=0700 \
+      -e MYSQL_HISTFILE=/dev/null \
+      -e MYSQL_ROOT_PASSWORD={{ mysql_root_pwd }} \
+      -v /opt/mysqldata:/var/lib/mysql \
+      -v /opt/mysqlconfig/mysqld.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf \
+      -v {{ install_tmp }}:/tmp/install \
+      mysql:{{ mysql_ver }}
+
+
+- name: "Wait for Mysql Server"
+  wait_for:
+    host: 127.0.0.1
+    port: 3306
+    state: started
+    delay: 30
+
+
+- name: "Create Discuz User and Database"
+  shell: >
+    docker exec mysql mysql -u root -p{{ mysql_root_pwd }} -e "CREATE DATABASE IF NOT EXISTS {{ discuz_database }} DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;" && \
+    docker exec mysql mysql -u root -p{{ mysql_root_pwd }} -e "GRANT ALL PRIVILEGES ON {{ discuz_database }}.* TO {{ discuz_user }}@'localhost' IDENTIFIED BY '{{ discuz_user_pwd }}';" && \
+    docker exec mysql mysql -u root -p{{ mysql_root_pwd }} -e "GRANT ALL PRIVILEGES ON {{ discuz_database }}.* TO {{ discuz_user }}@{{ hostvars['h_http'].ansible_ssh_host }} IDENTIFIED BY '{{ discuz_user_pwd }}';" && \
+    docker exec mysql mysql -u root -p{{ mysql_root_pwd }} -e "GRANT ALL PRIVILEGES ON *.* TO root@'%' IDENTIFIED BY '{{ mysql_root_pwd }}';" && \
+    docker exec mysql mysql -u root -p{{ mysql_root_pwd }} -e "FLUSH PRIVILEGES;" 
+  when: "'g_mysql' in group_names"
+
+
+- name: "Create Zabbix User and Database"
+  shell: >
+    docker exec mysql mysql -u root -p{{ mysql_root_pwd }} -e "CREATE DATABASE IF NOT EXISTS {{ zabbix_database }} DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;" && \
+    docker exec mysql mysql -u root -p{{ mysql_root_pwd }} -e "GRANT ALL PRIVILEGES ON {{ zabbix_database }}.* TO {{ zabbix_user }}@'localhost' IDENTIFIED BY '{{ zabbix_user_pwd }}';" && \
+    docker exec mysql mysql -u root -p{{ mysql_root_pwd }} -e "GRANT ALL PRIVILEGES ON {{ zabbix_database }}.* TO {{ zabbix_user }}@'{{ ansible_ssh_host }}' IDENTIFIED BY '{{ zabbix_user_pwd }}';" && \
+    docker exec mysql mysql -u root -p{{ mysql_root_pwd }} -e "GRANT ALL PRIVILEGES ON *.* TO root@'%' IDENTIFIED BY '{{ mysql_root_pwd }}';" && \
+    docker exec mysql mysql -u root -p{{ mysql_root_pwd }} -e "FLUSH PRIVILEGES;"
+  when: "'g_zabbix_server' in group_names"
+
+
+- name: "Exexute Zabbix SQL"
+  shell: docker exec mysql bash -c "mysql -u root -p{{ mysql_root_pwd }} -D {{ zabbix_database }} < /tmp/install/create.sql"
+  when: "'g_zabbix_server' in group_names"
+
+
+- name: "Stop Mysql Server Container"
+  shell: "docker stop mysql && docker rm mysql"
+
+
+- name: "Restart Mysql Server"
+  systemd:
+    name: "mysqld"
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
+
+
+- name: "Wait for Mysql Server"
+  wait_for:
+    host: "{{ ansible_ssh_host }}"
+    port: 3306
+    state: started
+    delay: 30
+
+
+- name: "Start Firewalld"
+  systemd:
+    name: "firewalld"
+    state: started
+    daemon_reload: yes
+    enabled: yes
+
+
+- name: "Set Firewalld"
+  firewalld:
+    zone: public
+    port: "{{ item }}"
+    permanent: yes
+    immediate: yes
+    state: enabled
+  with_items:
+    - "3306/tcp"
+
+
+- name: "Remove Install Tmp Folder"
+  file:
+    path: "{{ install_tmp }}"
+    state: absent

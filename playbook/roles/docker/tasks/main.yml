@@ -1,0 +1,43 @@
+---
+
+- name: "Create Docker Folder"
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0750
+  with_items:
+    - /etc/docker
+    - "{{ docker_data_root }}"
+
+- name: "Set Selinux"
+  selinux:
+    policy: targeted
+    state: permissive
+  
+- name: "Copy Docker Service File"
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: 0640
+  with_items:
+    - { src: 'docker.service', dest: '/etc/systemd/system' }
+
+- name: "Copy Docker Binary File"
+  copy:
+    src: "{{ item }}"
+    dest: "/usr/bin"
+    owner: root
+    group: root
+    mode: 0750
+  with_fileglob:
+    - docker/*
+
+- name: "Start Dokcer"
+  systemd:
+    name: "docker"
+    state: started
+    daemon_reload: yes
+    enabled: yes
+

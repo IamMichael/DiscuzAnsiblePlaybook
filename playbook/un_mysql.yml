@@ -1,0 +1,94 @@
+- hosts: g_mysql
+  tasks:
+    - name: "Stop Mysql Service"
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+      with_items:
+        - "mysqld"
+      ignore_errors: true
+
+    - name: "Remove Mysql Container"
+      shell: "docker rm  mysql -f"
+      ignore_errors: true
+
+    - name: "Remove Mysql File"
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/opt/mysqldata"
+        - "/opt/mysqlconfig"
+        - "/etc/systemd/system/mysqld.service"
+      ignore_errors: true
+
+
+################################################
+
+    - name: "Stop Docker Service"
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+      with_items:
+        - "docker"
+      ignore_errors: true
+
+#    - name: "Find Docker Binary"
+#      find:
+#        path: /usr/bin
+#        patterns: docker*
+#      register: docker_binary
+#
+#    - name: "Remove Docker Binary"
+#      file:
+#        path: "{{ item.path }}"
+#        state: absent
+#      with_items:
+#        - "{{ docker_binary.files }}"
+#      loop_control:
+#        label: "{{ item.path }}"
+
+    - name: "Remve Docker File"
+      file: 
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/usr/bin/docker"
+        - "/usr/bin/dockerd"
+        - "/usr/bin/docker-init"
+        - "/usr/bin/docker-proxy"
+        - "/usr/bin/docker-runc"
+        - "/usr/bin/docker-containerd"
+        - "/usr/bin/docker-containerd-ctr"
+        - "/usr/bin/docker-containerd-shim"
+        - "/etc/systemd/system/docker.service"
+        - "{{ docker_data_root }}"
+      ignore_errors: true
+
+
+    - name: "Reboot System"
+      command: "/usr/sbin/shutdown -r +1"
+      async: 0
+      poll: 0
+      ignore_errors: true
+
+    - name: "Wait for 60s"
+      pause: seconds=60
+
+    - name: "Wait for Restart"
+      shell: "echo > /dev/tcp/{{ ansible_ssh_host }}/22"
+      args:
+        executable: /bin/bash
+      register: result
+      until: result.rc == 0
+      retries: 30
+      delay: 10
+      delegate_to: localhost
+
+    - name: "Remove Docker Data File"
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "{{ docker_data_root }}"
+

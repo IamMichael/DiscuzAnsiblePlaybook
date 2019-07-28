@@ -1,0 +1,11 @@
+- name: "Clean Up Tmp Folder"
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0750
+  with_items:
+    - "{{ install_tmp }}"
+
+
+- name: "Clean Up Tmp Repositry"
+  shell: rm -f /etc/yum.repos.d/yum.repo

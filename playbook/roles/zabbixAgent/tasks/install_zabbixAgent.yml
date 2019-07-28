@@ -1,0 +1,52 @@
+- name: "Set Selinux"
+  selinux:
+    policy: targeted
+    state: permissive
+
+
+- name: "Install Zabbix Agent"
+  yum:
+    name:
+      - zabbix-agent
+      - zabbix-sender
+      - net-tools
+    state: present
+    enablerepo: "YUM"
+    disablerepo: "*"
+
+
+- name: "Copy Zabbix Agent Config File"
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0640
+  with_items:
+    - { src: 'zabbix_agentd.conf', dest: '/etc/zabbix' }
+
+
+- name: "Start Zabbix Agent"
+  systemd:
+    name: "zabbix-agent"
+    state: started
+    daemon_reload: yes
+    enabled: yes
+
+
+- name: "Start Firewalld"
+  systemd:
+    name: "firewalld"
+    state: started
+    daemon_reload: yes
+    enabled: yes
+
+
+- name: "Set Firewalld"
+  firewalld:
+    zone: public
+    port: "{{ item }}"
+    permanent: yes
+    immediate: yes
+    state: enabled
+  with_items:
+    - "10050/tcp"
+

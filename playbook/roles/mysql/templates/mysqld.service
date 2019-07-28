@@ -1,0 +1,26 @@
+[Unit]
+Description=MySQL Server
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+ExecStartPre=-/usr/bin/docker rm -f mysql
+ExecStart=/usr/bin/docker run \
+  --name mysql \
+  -p {{ ansible_ssh_host }}:3306:3306 \
+  -e UMASK=0600 \
+  -e UMASK_DIR=0700 \
+  -e MYSQL_HISTFILE=/dev/null \
+  -v /opt/mysqldata:/var/lib/mysql \
+  -v /opt/mysqlconfig/mysqld.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf \
+  mysql:{{ mysql_ver }}
+ExecStop=/usr/bin/docker stop mysql
+
+LimitNOFILE=65535
+Restart=on-failure
+StartLimitBurst=3
+StartLimitInterval=60s
+
+[Install]
+WantedBy=multi-user.target
+

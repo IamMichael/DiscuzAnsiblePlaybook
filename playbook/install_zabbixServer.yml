@@ -1,0 +1,7 @@
+- hosts: g_zabbix_server
+  roles:
+    - docker
+    - mysql
+    - yum 
+    - zabbixServer
+

@@ -1,0 +1,120 @@
+---
+- name: "Set Selinux"
+  selinux:
+    policy: targeted
+    state: permissive
+
+
+- name: "Install Zabbix Server"
+  yum:
+    name:
+      - zabbix-server-mysql
+      - zabbix-web
+      - zabbix-web-mysql
+      - zabbix-sender
+      - zabbix-get
+      - zabbix-java-gateway
+      - php-gd
+      - php-bcmath
+      - php-mbstring
+      - php-xml
+      - net-tools
+      - httpd
+      - php
+      - php-mysql
+      - mod_ssl
+    state: present
+    enablerepo: "YUM"
+    disablerepo: "*"
+
+
+- name: Create Httpd  Folder
+  file:
+    path: "{{ item.dest }}"
+    state: directory
+    owner: apache
+    group: apache
+    mode: "{{ item.mode }}"
+  with_items:
+    - { dest: '/var/www/ssl', mode: '0700' }
+    - { dest: '/etc/zabbix/web', mode: '0750' }
+
+- name: "Copy Http Config File"
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: apache
+    group: apache
+    mode: 0640
+  with_items:
+    - { src: 'httpd.conf', dest: '/etc/httpd/conf/httpd.conf' }
+    - { src: 'ssl.conf', dest: '/etc/httpd/conf.d/ssl.conf' }
+    - { src: 'redirectHttp2Https.conf', dest: '/etc/httpd/conf.d/redirectHttp2Https.conf' }
+    - { src: 'zabbix.conf.php', dest: '/etc/zabbix/web/zabbix.conf.php' }
+
+
+- name: "Copy Zabbix Server Config File"
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0640
+  with_items:
+    - { src: 'php.ini', dest: '/etc' }
+    - { src: 'zabbix_server.conf', dest: '/etc/zabbix' }
+
+
+- name: "Generate Openssl Certificate"
+  shell: >
+    openssl req -x509 -nodes  \
+      -sha512  \
+      -newkey rsa:2048 \
+      -days 3650 \
+      -subj "/C=CN/ST=Gunagdong/L=Shenzhen/O=Test/OU=Test/CN={{ server_name }}" \
+      -keyout /var/www/ssl/apache-selfsigned.key \
+      -out    /var/www/ssl/apache-selfsigned.crt
+
+
+- name: "Generate Diffie-Hellman"
+  shell: >
+    openssl dhparam -out /var/www/ssl/dhparam.pem  2048 && \
+    cat /var/www/ssl/dhparam.pem | tee -a /var/www/ssl/apache-selfsigned.crt
+
+
+- name: "Modify Certificate File and Directory Permissions"
+  shell: >
+    find /var/www/ssl -type d -exec chmod 700 {} \; && \
+    find /var/www/ssl -type f -exec chmod 400 {} \;
+
+
+- name: "Start Zabbix Server"
+  systemd:
+    name: "{{ item }}"
+    state: started
+    daemon_reload: yes
+    enabled: yes
+  with_items:
+    - httpd
+    - zabbix-server
+
+
+- name: "Start Firewalld"
+  systemd:
+    name: "firewalld"
+    state: started
+    daemon_reload: yes
+    enabled: yes
+
+
+- name: "Set Firewalld"
+  firewalld:
+    zone: public
+    port: "{{ item }}"
+    permanent: yes
+    immediate: yes
+    state: enabled
+  with_items:
+    - "80/tcp"
+    - "443/tcp"
+    - "10050/tcp"
+    - "10051/tcp"
+

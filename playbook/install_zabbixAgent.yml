@@ -1,0 +1,5 @@
+- hosts: g_zabbix_agent
+  roles:
+    - yum 
+    - zabbixAgent
+

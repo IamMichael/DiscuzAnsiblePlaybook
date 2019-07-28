@@ -1,0 +1,16 @@
+install_tmp: "/tmp/install"
+docker_data_root: "/var/lib/docker"
+
+
+mysql_ver: "5.7.26"
+mysql_root_pwd: "MySQL@123"
+
+discuz_database: "discuz"
+discuz_user: "discuz"
+discuz_user_pwd: "Discuz@123"
+
+server_name: "www.example.com"
+
+zabbix_database: "zabbix"
+zabbix_user: "zabbix"
+zabbix_user_pwd: "Zabbix@123"

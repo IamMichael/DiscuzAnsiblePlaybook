@@ -1,0 +1,18 @@
+- hosts: g_zabbix_server
+  tasks:
+    - name: "Restart Zabbix Server"
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+      with_items:
+        - "httpd"
+        - "zabbix-server"
+
+    - name: "Wait for 30s"
+      pause: seconds=30
+
+
+- hosts: g_zabbix_agent
+  roles:
+    - registerAgent
+

@@ -1,0 +1,24 @@
+---
+- name: Create Temp Install Folder
+  file:
+    dest: "{{ install_tmp }}"
+    state: directory
+
+
+- name: Copy yum.tar.gz
+  unarchive:
+    src: yum.tar.gz
+    dest: "{{ install_tmp }}"
+
+
+- name: "Copy YUM Repositry"
+  template:
+    src: yum.repo
+    dest: /etc/yum.repos.d
+    mode: 0640
+
+#- name: "Remove Temp Install Folder"
+#  file:
+#    path: "{{ install_tmp }}"
+#    state: absent
+

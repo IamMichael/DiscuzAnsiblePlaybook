@@ -1,0 +1,29 @@
+- hosts: g_zabbix_agent
+  tasks:
+    - name: "Stop Zabbix Agent"
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+      with_items:
+        - "zabbix-agent"
+      ignore_errors: true
+
+
+    - name: "Remove Zabbix Agent"
+      yum:
+        name: "{{ item }}"
+        state: absent
+      with_items:
+        - zabbix-agent
+      ignore_errors: true
+
+
+    - name: "Remove Zabbix Agent File"
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/etc/zabbix/zabbix_agentd.d"
+        - "/etc/zabbix/zabbix_agentd.conf"
+      ignore_errors: true
+

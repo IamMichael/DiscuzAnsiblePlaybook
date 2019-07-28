@@ -1,0 +1,30 @@
+- hosts: g_http
+  tasks:
+    - name: "Stop Http Service"
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+      with_items:
+        - "httpd"
+      ignore_errors: true
+
+
+    - name: "Remove Http RPM"
+      yum:
+        name: "{{ item }}"
+        state: absent
+      with_items:
+        - httpd 
+        - php
+        - php-mysql
+        - mod_ssl
+      ignore_errors: true
+
+    - name: "Remove Httpd File"
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/var/www/html"
+        - "/var/www/ssl"
+      ignore_errors: true

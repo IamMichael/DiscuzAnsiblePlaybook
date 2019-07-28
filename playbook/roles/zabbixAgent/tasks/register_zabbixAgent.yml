@@ -1,0 +1,71 @@
+---
+
+- name: "Disable Python Cert Verification"
+  lineinfile:
+    path: /etc/python/cert-verification.cfg
+    regexp: '^verify='
+    line: verify=disable
+
+
+- name: "Create Host Group and Delete Default Register Host"
+  block:
+    - name: "Create Host Group"
+      local_action:
+        module: zabbix_group
+        server_url: https://{{ hostvars['h_zabbix_server']['ansible_ssh_host'] }}/zabbix
+        login_user: admin
+        login_password: zabbix
+        validate_certs: no
+        state: present
+        host_groups:
+          - Test group1
+          - Test group2
+
+    - name: "Delete Default Register Host"
+      local_action:
+        module: zabbix_host
+        server_url: https://{{ hostvars['h_zabbix_server']['ansible_ssh_host'] }}/zabbix
+        login_user: admin
+        login_password: zabbix
+        validate_certs: no
+        host_name: "Zabbix server"
+        status: disabled
+        state: absent
+        force: no
+        inventory_mode: automatic
+        interfaces:
+          - type: 1
+            main: 1
+            useip: 1
+            ip: "127.0.0.1"
+            dns: ""
+            port: 10050
+  when: inventory_hostname==groups['g_zabbix_agent'][0]
+
+- name: "Register Zabbix Agent to Server"
+  local_action:
+    module: zabbix_host
+    server_url: https://{{ hostvars['h_zabbix_server']['ansible_ssh_host'] }}/zabbix
+    login_user: admin
+    login_password: zabbix
+    validate_certs: no
+    host_name: "{{ ansible_ssh_host }}"
+    host_groups:
+      - 'Linux servers'
+    link_templates:
+      - 'Template OS Linux'
+    status: enabled
+    state: present
+    force: no
+    inventory_mode: automatic
+    interfaces:
+      - type: 1
+        main: 1
+        useip: 1
+        ip: "{{ ansible_ssh_host }}"
+        dns: ""
+        port: 10050
+
+
+
+

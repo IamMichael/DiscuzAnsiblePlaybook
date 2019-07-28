@@ -1,0 +1,5 @@
+[YUM]
+name=yum repositry
+baseurl=file://{{ install_tmp }}/yum
+enable=1
+gpgcheck=0

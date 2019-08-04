@@ -1,7 +1,7 @@
 #!/bin/bash
 
 yum -y install epel-release
-yum -y insatll ansible
+yum -y install ansible
 yum -y install python-setuptools
 easy_install pip
 pip install zabbix-api
